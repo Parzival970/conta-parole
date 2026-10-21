@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Conta la Parola</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Conta Parola">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F3F4F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,700&family=Familjen+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-column phone app. Word as the hero, one tally pad per person, stats below. */
+:root{
+  --bg:#F3F4F7; --surface:#FFFFFF; --ink:#16181D; --muted:#646B78; --line:#DDE0E7; --danger:#C2412D; --ok:#2E9E62;
+  --p0:#B8336A; --p1:#1D6E8C; --p2:#B5651D; --p3:#5B4BB7; --p4:#2F8A4E; --p5:#A03A2C; --p6:#7A6A12; --p7:#2D5BA8;
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --body:"Familjen Grotesk", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r:18px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111317; --surface:#1B1E24; --ink:#EEF0F4; --muted:#9AA1AE; --line:#2C3039; --danger:#F07A63; --ok:#4FC384;
+  --p0:#E56C9C; --p1:#5BB4D6; --p2:#E6A15C; --p3:#A497F0; --p4:#6CCB8C; --p5:#EE8B79; --p6:#D9C65A; --p7:#7FA6EC; color-scheme:dark}}
+
+*{box-sizing:border-box}
+html,body{background:var(--bg);margin:0}
+body{color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:calc(32px + env(safe-area-inset-bottom,0px));
+  -webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+[hidden]{display:none!important}
+
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.eyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.word{font-family:var(--display);font-style:italic;font-weight:700;font-size:clamp(34px,10vw,52px);line-height:1.05;margin:4px 0 0;text-wrap:balance;overflow-wrap:anywhere}
+.iconbtn{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.iconbtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8}
+.warn{font-size:13px;color:var(--danger);margin:6px 0 0}
+
+.pads{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pads[data-n="1"]{grid-template-columns:1fr}
+.pads .pad:last-child:nth-child(odd){grid-column:1/-1}
+.pad{position:relative;border:0;border-radius:var(--r);padding:16px 14px 14px;min-height:var(--h,240px);
+  display:flex;flex-direction:column;justify-content:space-between;gap:8px;text-align:left;
+  background:var(--surface);
+  background:color-mix(in srgb, var(--c) 16%, var(--bg));
+  touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .08s ease}
+.pad:active{transform:scale(.97)}
+.pad .name{font-weight:700;font-size:19px;color:var(--c);overflow-wrap:anywhere;display:block}
+.pad .n{font-weight:700;font-size:var(--nf,clamp(64px,20vw,96px));line-height:.9;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.pad .hint{font-size:12px;color:var(--muted)}
+.pad .tally{display:block;width:100%;height:26px;margin-top:6px}
+.pad.bump .n{display:inline-block;animation:bump .25s ease}
+@keyframes bump{40%{transform:scale(1.12)}}
+.plus{position:absolute;right:14px;top:12px;font-weight:700;color:var(--c);font-size:22px;opacity:0;pointer-events:none}
+.pad.bump .plus{animation:fly .5s ease}
+@keyframes fly{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-26px)}}
+.nopeople{grid-column:1/-1;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:24px;text-align:center;color:var(--muted)}
+
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.total{font-size:15px;color:var(--muted)}
+.total b{color:var(--ink);font-variant-numeric:tabular-nums}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:10px 16px;font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--danger)}
+.btn.small{padding:7px 12px;font-size:14px}
+.toast{font-size:13px;color:var(--muted);min-height:18px;margin-top:-12px}
+
+section{display:flex;flex-direction:column;gap:12px}
+h2{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.legend{display:flex;gap:6px 14px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-family:var(--body);font-size:10px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+
+.stats{display:grid;grid-template-columns:minmax(0,1.4fr) 1fr 1fr 1fr;gap:10px 8px;align-items:baseline}
+.stats .k{font-size:12px;color:var(--muted);font-weight:600}
+.stats .who{font-weight:700;min-width:0;overflow-wrap:anywhere}
+.stats .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:0}
+.stats .v small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+
+.days{display:flex;flex-direction:column}
+.day{display:grid;grid-template-columns:84px minmax(0,1fr);gap:4px 10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.day:first-child{border-top:0}
+.day .d{color:var(--muted)}
+.day .tr{display:flex;height:10px;border-radius:5px;overflow:hidden;align-self:center}
+.day .cs{grid-column:2;display:flex;flex-wrap:wrap;gap:2px 12px;font-size:13px;font-variant-numeric:tabular-nums}
+.day .cs b{font-weight:700}
+.day .w{grid-column:2;font-size:11px;color:var(--muted)}
+.empty{color:var(--muted);font-size:14px;margin:0}
+
+/* Settings sheet */
+.sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;background:rgba(10,12,16,.45)}
+.panel{width:100%;max-width:560px;background:var(--surface);border-radius:22px 22px 0 0;max-height:92%;overflow:auto;-webkit-overflow-scrolling:touch;
+  padding:20px max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:18px}
+.panel h3{margin:0;font-size:20px}
+.panel h4{margin:0;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.grp{display:flex;flex-direction:column;gap:10px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
+input[type=text],textarea{font:inherit;font-size:17px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%}
+textarea{font-size:13px;min-height:90px;font-family:ui-monospace,Menlo,monospace}
+.person{display:flex;align-items:center;gap:10px}
+.person .sw{flex:none;width:28px;height:28px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line);background:var(--c)}
+.person input{flex:1;min-width:0}
+.person .rm{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--danger);display:grid;place-items:center}
+.person .rm svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.confirm{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.confirm .actions{justify-content:flex-start}
+.actions{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.note{font-size:13px;color:var(--muted);margin:0}
+.archived{display:flex;flex-wrap:wrap;gap:8px}
+@media (prefers-reduced-motion:reduce){.pad,.pad.bump .n,.pad.bump .plus{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="min-width:0">
+      <div class="eyebrow" id="today">Oggi</div>
+      <h1 class="word" id="word">“Insomma”</h1>
+      <p class="warn" id="storageWarn" hidden>Questo browser non salva i dati: fai spesso il backup dalle impostazioni.</p>
+    </div>
+    <button class="iconbtn" id="openSettings" aria-label="Impostazioni">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="pads" id="pads"></div>
+
+  <div class="bar">
+    <div class="total">Oggi in totale: <b id="tot">0</b></div>
+    <button class="btn" id="undo" disabled>
+      <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Annulla ultimo</button>
+  </div>
+  <div class="toast" id="toast" aria-live="polite"></div>
+
+  <section>
+    <h2>Oggi, ora per ora</h2>
+    <div class="card"><svg class="chart" id="hours" viewBox="0 0 340 92" role="img" aria-label="Conteggi di oggi per ora"></svg></div>
+  </section>
+
+  <section>
+    <h2>Ultimi 14 giorni</h2>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px">
+      <div class="legend" id="legend"></div>
+      <svg class="chart" id="chart14" viewBox="0 0 340 150" role="img" aria-label="Conteggi degli ultimi 14 giorni"></svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>Numeri</h2>
+    <div class="card stats" id="stats"></div>
+  </section>
+
+  <section>
+    <h2>Storico</h2>
+    <div class="card days" id="days"></div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="panel" role="dialog" aria-labelledby="sTitle">
+    <div class="actions" style="align-items:center">
+      <h3 id="sTitle">Impostazioni</h3>
+      <button class="btn small primary" id="closeSettings">Fatto</button>
+    </div>
+
+    <div class="grp">
+      <label for="inWord">Parola da contare</label>
+      <input type="text" id="inWord" autocomplete="off" enterkeyhint="done">
+      <p class="note">Se cambi parola, i giorni passati restano con la parola che contavi allora.</p>
+    </div>
+
+    <div class="grp">
+      <h4>Persone</h4>
+      <div class="grp" id="peopleList"></div>
+      <div class="person">
+        <input type="text" id="inNew" placeholder="Nome della nuova persona" autocomplete="off" enterkeyhint="done" aria-label="Nome della nuova persona">
+        <button class="btn" id="addPerson">Aggiungi</button>
+      </div>
+      <div class="grp" id="archivedWrap" hidden>
+        <p class="note">Tolte dai pulsanti ma con lo storico conservato. Tocca un nome per rimetterlo.</p>
+        <div class="archived" id="archivedList"></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h4>Backup</h4>
+      <p class="note">Salva una copia dei conteggi. Se perdi i dati o cambi telefono, la reimporti da qui.</p>
+      <div class="actions" style="justify-content:flex-start">
+        <button class="btn" id="exportFile">Scarica file</button>
+        <button class="btn" id="exportCopy">Copia testo</button>
+        <button class="btn" id="importBtn">Importa</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json,text/plain" hidden>
+      <div class="grp" id="importPaste" hidden>
+        <label for="pasteArea">Oppure incolla qui il testo del backup</label>
+        <textarea id="pasteArea"></textarea>
+        <div class="actions" style="justify-content:flex-start">
+          <button class="btn" id="chooseFile">Scegli un file</button>
+          <button class="btn primary" id="pasteGo">Importa il testo</button>
+        </div>
+      </div>
+      <div class="confirm" id="importConfirm" hidden>
+        <span id="importSummary"></span>
+        <div class="actions">
+          <button class="btn danger" id="importReplace">Sostituisci tutto</button>
+          <button class="btn" id="importCancel">Annulla</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h4>Oggi</h4>
+      <div class="actions" style="justify-content:flex-start">
+        <button class="btn danger" id="resetToday">Azzera i conteggi di oggi</button>
+      </div>
+      <p class="note" id="resetConfirm" hidden>Tocca di nuovo per confermare.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const LS = "contaparola.v2";
+  const OLD_LS = "contaparola.v1";
+  const NCOL = 8;
+  const MESI = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+  const GIORNI = ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
+  const GG = ["D","L","M","M","G","V","S"];
+  const $ = id => document.getElementById(id);
+
+  const keyOf = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const parseKey = k => { const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); };
+  const fmtDay = k => { const d=parseKey(k); return d.getDate()+" "+MESI[d.getMonth()]; };
+  const uid = () => "p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+  /* ---------- state ----------
+     people: [{id, name, color(0-7), archived}]
+     days:   {"YYYY-MM-DD": {word, log:[[personId, timestamp], ...]}} */
+  function defaults(){
+    return { v:2, word:"Insomma", people:[{id:"mamma",name:"Mamma",color:0,archived:false},{id:"papa",name:"Papà",color:1,archived:false}], days:{} };
+  }
+  function normalize(s){
+    if (!s || typeof s !== "object") return null;
+    // Version 1 (earlier page): settings.names + log with numeric index.
+    if (s.settings && s.days && !s.people){
+      const names = (s.settings.names||["Mamma","Papà"]).slice(0,2);
+      const ids = ["mamma","papa"];
+      const days = {};
+      for (const k in s.days){ const d=s.days[k]; if (d && Array.isArray(d.log)) days[k]={word:String(d.word||s.settings.word||""),log:d.log.map(e=>[ids[e[0]]||"mamma",Number(e[1])])}; }
+      return { v:2, word:String(s.settings.word||"Insomma"), people:names.map((n,i)=>({id:ids[i],name:String(n),color:i,archived:false})), days };
+    }
+    if (!Array.isArray(s.people) || typeof s.days !== "object") return null;
+    const out = { v:2, word:String(s.word||"Insomma"), people:[], days:{} };
+    for (const p of s.people){ if (p && p.id) out.people.push({id:String(p.id),name:String(p.name||"Senza nome"),color:(Number(p.color)||0)%NCOL,archived:!!p.archived}); }
+    for (const k in s.days){ const d=s.days[k]; if (/^\d{4}-\d{2}-\d{2}$/.test(k) && d && Array.isArray(d.log)) out.days[k]={word:String(d.word||""),log:d.log.filter(e=>Array.isArray(e)).map(e=>[String(e[0]),Number(e[1])])}; }
+    return out;
+  }
+  function load(){
+    try { const s = normalize(JSON.parse(localStorage.getItem(LS)||"null")); if (s) return s; } catch(e){}
+    try { const s = normalize(JSON.parse(localStorage.getItem(OLD_LS)||"null")); if (s) return s; } catch(e){}
+    return defaults();
+  }
+  let state = load();
+  let storageOk = true;
+  function save(){
+    try { localStorage.setItem(LS, JSON.stringify(state)); storageOk = true; }
+    catch(e){ storageOk = false; }
+    $("storageWarn").hidden = storageOk;
+  }
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
+
+  const active = () => state.people.filter(p=>!p.archived);
+  const person = id => state.people.find(p=>p.id===id);
+  const colorOf = p => "var(--p"+((p?p.color:0)%NCOL)+")";
+  const colorVal = p => getComputedStyle(document.documentElement).getPropertyValue("--p"+((p?p.color:0)%NCOL)).trim();
+  function counts(d){ const c={}; if (d) for (const e of d.log) c[e[0]]=(c[e[0]]||0)+1; return c; }
+  function dayOf(k){ return state.days[k] || (state.days[k] = { word: state.word, log: [] }); }
+  function nextColor(){
+    const used = new Set(active().map(p=>p.color));
+    for (let i=0;i<NCOL;i++) if (!used.has(i)) return i;
+    return state.people.length % NCOL;
+  }
+
+  /* ---------- toast ---------- */
+  let tt; function toast(t){ $("toast").textContent=t; clearTimeout(tt); tt=setTimeout(()=>$("toast").textContent="",2500); }
+
+  /* ---------- counting ---------- */
+  let lastTap = 0;
+  function tap(id){
+    const now = Date.now(); if (now-lastTap<120) return; lastTap = now;
+    const k = keyOf(new Date()), d = dayOf(k);
+    if (!d.log.length) d.word = state.word;
+    d.log.push([id, now]); save(); render();
+    const pad = document.querySelector('.pad[data-id="'+id+'"]');
+    if (pad){ pad.classList.remove("bump"); void pad.offsetWidth; pad.classList.add("bump"); }
+    try { navigator.vibrate && navigator.vibrate(12); } catch(e){}
+    const p = person(id);
+    toast("+1 a "+(p?p.name:"")+" alle "+new Date(now).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}));
+  }
+  $("undo").addEventListener("click", () => {
+    const k = keyOf(new Date()), d = state.days[k]; if (!d || !d.log.length) return;
+    const e = d.log.pop(); if (!d.log.length) delete state.days[k];
+    save(); render(); const p=person(e[0]); toast("Tolto un conteggio a "+(p?p.name:""));
+  });
+  $("pads").addEventListener("click", e => { const b = e.target.closest(".pad"); if (b) tap(b.dataset.id); });
+
+  /* ---------- settings ---------- */
+  let confirmId = null, resetArmed = false, pendingImport = null;
+  function openSheet(){ $("inWord").value = state.word; confirmId=null; resetArmed=false; $("resetConfirm").hidden=true;
+    $("importPaste").hidden=true; $("importConfirm").hidden=true; pendingImport=null; renderPeople(); $("sheet").hidden=false; }
+  function closeSheet(){ commitWord(); $("sheet").hidden = true; render(); }
+  $("openSettings").addEventListener("click", openSheet);
+  $("closeSettings").addEventListener("click", closeSheet);
+  $("sheet").addEventListener("click", e => { if (e.target.id==="sheet") closeSheet(); });
+
+  function commitWord(){
+    const w = $("inWord").value.trim().replace(/^["“”'«»]+|["“”'«»]+$/g,"");
+    if (!w || w===state.word) return;
+    state.word = w; const t = state.days[keyOf(new Date())]; if (t) t.word = w; save();
+  }
+  $("inWord").addEventListener("change", commitWord);
+  $("inWord").addEventListener("keydown", e => { if (e.key==="Enter") e.target.blur(); });
+
+  function renderPeople(){
+    const L = $("peopleList"); L.replaceChildren();
+    const list = active();
+    if (!list.length){ const p=document.createElement("p"); p.className="note"; p.textContent="Nessuna persona. Aggiungine una qui sotto."; L.append(p); }
+    for (const p of list){
+      const row = document.createElement("div"); row.className="person"; row.style.setProperty("--c", colorOf(p));
+      const sw = document.createElement("button"); sw.className="sw"; sw.setAttribute("aria-label","Cambia colore di "+p.name);
+      sw.addEventListener("click", () => { p.color = (p.color+1)%NCOL; save(); renderPeople(); render(); });
+      const inp = document.createElement("input"); inp.type="text"; inp.value=p.name; inp.id="name-"+p.id; inp.setAttribute("aria-label","Nome"); inp.enterKeyHint="done";
+      inp.addEventListener("change", () => { const v=inp.value.trim(); if (v){ p.name=v; save(); render(); } else inp.value=p.name; });
+      inp.addEventListener("keydown", e => { if (e.key==="Enter") inp.blur(); });
+      const rm = document.createElement("button"); rm.className="rm"; rm.setAttribute("aria-label","Rimuovi "+p.name);
+      rm.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      rm.addEventListener("click", () => { confirmId = confirmId===p.id ? null : p.id; renderPeople(); });
+      row.append(sw, inp, rm); L.append(row);
+      if (confirmId === p.id){
+        let n = 0; for (const k in state.days) n += counts(state.days[k])[p.id]||0;
+        const box = document.createElement("div"); box.className="confirm";
+        const t = document.createElement("span"); t.textContent = n ? "Rimuovere "+p.name+"? Ha "+n+" conteggi nello storico." : "Rimuovere "+p.name+"?";
+        const acts = document.createElement("div"); acts.className="actions";
+        if (n){
+          const keep = document.createElement("button"); keep.className="btn small"; keep.textContent="Togli, tieni lo storico";
+          keep.addEventListener("click", () => { p.archived=true; confirmId=null; save(); renderPeople(); render(); toast(p.name+" tolta dai pulsanti"); });
+          acts.append(keep);
+        }
+        const del = document.createElement("button"); del.className="btn small danger"; del.textContent = n ? "Elimina anche i conteggi" : "Rimuovi";
+        del.addEventListener("click", () => { removePerson(p.id); confirmId=null; renderPeople(); render(); toast(p.name+" rimossa"); });
+        const no = document.createElement("button"); no.className="btn small"; no.textContent="Annulla";
+        no.addEventListener("click", () => { confirmId=null; renderPeople(); });
+        acts.append(del, no); box.append(t, acts); L.append(box);
+      }
+    }
+    const arch = state.people.filter(p=>p.archived);
+    $("archivedWrap").hidden = !arch.length;
+    const A = $("archivedList"); A.replaceChildren();
+    for (const p of arch){
+      const b = document.createElement("button"); b.className="btn small"; b.style.color = colorOf(p); b.textContent = "+ "+p.name;
+      b.addEventListener("click", () => { p.archived=false; save(); renderPeople(); render(); });
+      A.append(b);
+    }
+  }
+  function removePerson(id){
+    state.people = state.people.filter(p=>p.id!==id);
+    for (const k in state.days){ const d=state.days[k]; d.log = d.log.filter(e=>e[0]!==id); if (!d.log.length) delete state.days[k]; }
+    save();
+  }
+  function addPerson(){
+    const v = $("inNew").value.trim(); if (!v) { $("inNew").focus(); return; }
+    const again = state.people.find(p=>p.archived && p.name.toLowerCase()===v.toLowerCase());
+    if (again) again.archived = false;
+    else state.people.push({ id:uid(), name:v, color:nextColor(), archived:false });
+    $("inNew").value = ""; save(); renderPeople(); render(); toast(v+" aggiunta");
+  }
+  $("addPerson").addEventListener("click", addPerson);
+  $("inNew").addEventListener("keydown", e => { if (e.key==="Enter"){ e.preventDefault(); addPerson(); } });
+
+  $("resetToday").addEventListener("click", () => {
+    if (!resetArmed){ resetArmed=true; $("resetConfirm").hidden=false; return; }
+    delete state.days[keyOf(new Date())]; save(); resetArmed=false; $("resetConfirm").hidden=true; render(); toast("Conteggi di oggi azzerati");
+  });
+
+  /* ---------- backup ---------- */
+  const backupText = () => JSON.stringify(state);
+  $("exportFile").addEventListener("click", () => {
+    try {
+      const blob = new Blob([JSON.stringify(state,null,1)], {type:"application/json"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = "conta-parola-backup-"+keyOf(new Date())+".json"; document.body.append(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      toast("Backup scaricato");
+    } catch(e){ toast("Download non riuscito: usa Copia testo"); }
+  });
+  $("exportCopy").addEventListener("click", async () => {
+    const t = backupText();
+    try { await navigator.clipboard.writeText(t); toast("Backup copiato: incollalo in Note o in una mail"); }
+    catch(e){ $("importPaste").hidden=false; $("pasteArea").value=t; $("pasteArea").select(); toast("Seleziona il testo e copialo a mano"); }
+  });
+  $("importBtn").addEventListener("click", () => { $("importPaste").hidden = !$("importPaste").hidden; $("pasteArea").value=""; $("importConfirm").hidden=true; });
+  $("chooseFile").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => prepareImport(String(r.result)); r.readAsText(f); e.target.value="";
+  });
+  $("pasteGo").addEventListener("click", () => prepareImport($("pasteArea").value));
+  function prepareImport(text){
+    let s = null; try { s = normalize(JSON.parse(text)); } catch(e){}
+    if (!s){ toast("Questo non sembra un backup di Conta la Parola"); return; }
+    pendingImport = s;
+    const nd = Object.keys(s.days).length; let nt = 0; for (const k in s.days) nt += s.days[k].log.length;
+    $("importSummary").textContent = "Il backup contiene "+s.people.length+" persone, "+nd+" giorni e "+nt+" conteggi. Sostituisce tutti i dati attuali.";
+    $("importConfirm").hidden = false;
+  }
+  $("importReplace").addEventListener("click", () => {
+    if (!pendingImport) return; state = pendingImport; pendingImport=null; save();
+    $("importConfirm").hidden=true; $("importPaste").hidden=true; $("inWord").value=state.word; renderPeople(); render(); toast("Backup importato");
+  });
+  $("importCancel").addEventListener("click", () => { pendingImport=null; $("importConfirm").hidden=true; });
+
+  /* ---------- render ---------- */
+  const NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, text){ const e=document.createElementNS(NS,tag); for (const a in attrs) e.setAttribute(a,attrs[a]); if (text!=null) e.textContent=text; return e; }
+  function h(tag, cls, text){ const e=document.createElement(tag); if (cls) e.className=cls; if (text!=null) e.textContent=text; return e; }
+
+  function drawTally(svg, n, color){
+    svg.replaceChildren();
+    const w = svg.clientWidth || 140, gW = 26, maxG = Math.max(1, Math.floor((w-28)/gW));
+    svg.setAttribute("viewBox","0 0 "+w+" 26");
+    const groups = Math.floor(n/5), rest = n%5, shown = Math.min(groups+(rest?1:0), maxG);
+    for (let g=0; g<shown; g++){
+      const x0 = g*gW+3, full = g<groups, m = full?4:rest;
+      for (let i=0;i<m;i++) svg.appendChild(el("line",{x1:x0+i*5,y1:3,x2:x0+i*5+1,y2:23,stroke:color,"stroke-width":2.2,"stroke-linecap":"round"}));
+      if (full) svg.appendChild(el("line",{x1:x0-2,y1:19,x2:x0+18,y2:7,stroke:color,"stroke-width":2.2,"stroke-linecap":"round"}));
+    }
+    const hidden = n - Math.min(n, shown*5);
+    if (hidden>0) svg.appendChild(el("text",{x:shown*gW+3,y:18,fill:color,"font-size":12,"font-weight":700},"+"+hidden));
+  }
+
+  // People shown in charts: active ones plus archived ones that still have counts.
+  function chartPeople(){
+    const has = new Set(); for (const k in state.days) for (const e of state.days[k].log) has.add(e[0]);
+    return state.people.filter(p=>!p.archived || has.has(p.id));
+  }
+
+  function render(){
+    const now = new Date(), k = keyOf(now), d = state.days[k], c = counts(d);
+    const act = active(), cp = chartPeople();
+    $("today").textContent = GIORNI[now.getDay()]+" "+now.getDate()+" "+MESI[now.getMonth()];
+    $("word").textContent = "“"+state.word+"”";
+
+    // Pads
+    const P = $("pads"); P.replaceChildren(); P.dataset.n = act.length;
+    const tall = act.length<=2 ? "clamp(220px,46vw,280px)" : act.length<=4 ? "clamp(170px,38vw,210px)" : "140px";
+    const nf = act.length<=2 ? "clamp(64px,20vw,96px)" : act.length<=4 ? "clamp(52px,15vw,72px)" : "44px";
+    if (!act.length){ P.append(h("div","nopeople","Aggiungi una persona dalle impostazioni per iniziare a contare.")); }
+    for (const p of act){
+      const b = h("button","pad"); b.dataset.id = p.id; b.style.setProperty("--c", colorOf(p)); b.style.setProperty("--h", tall); b.style.setProperty("--nf", nf);
+      b.setAttribute("aria-label","Aggiungi uno a "+p.name+", ora "+(c[p.id]||0));
+      const top = h("span"); const nm = h("span","name",p.name); const svg = document.createElementNS(NS,"svg"); svg.setAttribute("class","tally"); svg.setAttribute("aria-hidden","true");
+      top.append(nm, svg);
+      const bot = h("span"); bot.append(h("span","n",String(c[p.id]||0)), document.createElement("br"), h("span","hint","tocca per contare"));
+      b.append(h("span","plus","+1"), top, bot); P.append(b);
+    }
+    for (const p of act){ const svg = P.querySelector('.pad[data-id="'+p.id+'"] .tally'); drawTally(svg, c[p.id]||0, colorVal(p)); }
+
+    const tot = d ? d.log.length : 0;
+    $("tot").textContent = tot; $("undo").disabled = !tot;
+
+    // Legend
+    const Lg = $("legend"); Lg.replaceChildren();
+    for (const p of cp){ const s=h("span"); const i=h("i"); i.style.background=colorOf(p); s.append(i, document.createTextNode(p.name+(p.archived?" (tolta)":""))); Lg.append(s); }
+
+    // Hours chart (stacked)
+    const H = $("hours"); H.replaceChildren();
+    const hb = Array.from({length:24},()=>({}));
+    if (d) for (const e of d.log){ const hr=new Date(e[1]).getHours(); hb[hr][e[0]]=(hb[hr][e[0]]||0)+1; }
+    const hsum = hb.map(x=>Object.values(x).reduce((a,b)=>a+b,0));
+    const hmax = Math.max(1, ...hsum);
+    const left=6, right=334, top=12, base=72, cw=(right-left)/24;
+    H.appendChild(el("line",{x1:left,y1:base,x2:right,y2:base,class:"grid"}));
+    hb.forEach((x,hr)=>{
+      const bx = left+hr*cw+1.5, bw = cw-3; let y = base;
+      for (const p of cp){ const v = x[p.id]||0; if (!v) continue; const hh=(base-top)*v/hmax; y-=hh; H.appendChild(el("rect",{x:bx,y:y,width:bw,height:hh,fill:colorVal(p)})); }
+      if (hr%3===0) H.appendChild(el("text",{x:bx+bw/2,y:base+14,"text-anchor":"middle"},String(hr)));
+      if (hsum[hr] && hsum[hr]===hmax) H.appendChild(el("text",{x:bx+bw/2,y:y-3,"text-anchor":"middle"},String(hsum[hr])));
+    });
+    if (!tot) H.appendChild(el("text",{x:170,y:44,"text-anchor":"middle"},"Ancora niente oggi"));
+
+    // 14 days (stacked)
+    const C = $("chart14"); C.replaceChildren();
+    const keys=[]; for (let i=13;i>=0;i--){ const t=new Date(now); t.setDate(now.getDate()-i); keys.push(keyOf(t)); }
+    const vals = keys.map(kk=>counts(state.days[kk]));
+    const sums = keys.map(kk=>state.days[kk]?state.days[kk].log.length:0);
+    const vmax = Math.max(0,...sums);
+    const step = vmax<=4?1: vmax<=10?2: vmax<=25?5: vmax<=50?10: Math.ceil(vmax/50)*10;
+    const ymax = Math.max(step, Math.ceil(vmax/step)*step);
+    const L=26, R=336, T=10, B=124, gw=(R-L)/14;
+    for (let y=0;y<=ymax;y+=step){ const yy=B-(B-T)*y/ymax; C.appendChild(el("line",{x1:L,y1:yy,x2:R,y2:yy,class:"grid"})); C.appendChild(el("text",{x:L-5,y:yy+3,"text-anchor":"end"},String(y))); }
+    vals.forEach((v,i)=>{
+      const gx=L+i*gw, bw=gw-6; let y=B;
+      for (const p of cp){ const n=v[p.id]||0; if (!n) continue; const hh=(B-T)*n/ymax; y-=hh; C.appendChild(el("rect",{x:gx+3,y:y,width:bw,height:hh,fill:colorVal(p)})); }
+      const dt=parseKey(keys[i]);
+      C.appendChild(el("text",{x:gx+gw/2,y:B+13,"text-anchor":"middle"},GG[dt.getDay()]));
+      if (i%2===1) C.appendChild(el("text",{x:gx+gw/2,y:B+24,"text-anchor":"middle"},String(dt.getDate())));
+    });
+
+    // Stats
+    const all = Object.keys(state.days).filter(kk=>state.days[kk].log.length).sort();
+    const nd = Math.max(1, all.length);
+    const S = $("stats"); S.replaceChildren();
+    S.append(h("span","k",""), h("span","k","Totale"), h("span","k","Media/giorno"), h("span","k","Record"));
+    if (!cp.length) { S.append(h("span","k","Nessuna persona")); }
+    for (const p of cp){
+      let t=0,best=0,bk=null; for (const kk of all){ const n=counts(state.days[kk])[p.id]||0; t+=n; if (n>best){best=n;bk=kk;} }
+      const who = h("span","who",p.name); who.style.color = colorOf(p);
+      const rec = h("span","v",String(best)); if (best){ const sm=h("small",null,fmtDay(bk)); rec.append(sm); }
+      S.append(who, h("span","v",String(t)), h("span","v",(t/nd).toLocaleString("it-IT",{maximumFractionDigits:1})), rec);
+    }
+
+    // History
+    const D = $("days"); D.replaceChildren();
+    const rev = all.slice().reverse().slice(0,90);
+    if (!rev.length) D.append(h("p","empty","Qui compariranno i giorni contati. Tocca un nome in alto ogni volta che senti la parola."));
+    const rmax = Math.max(1,...rev.map(kk=>state.days[kk].log.length));
+    for (const kk of rev){
+      const dd = state.days[kk], v = counts(dd), dt = parseKey(kk);
+      const row = h("div","day");
+      row.append(h("span","d", kk===k ? "Oggi" : GIORNI[dt.getDay()].slice(0,3)+" "+fmtDay(kk)));
+      const tr = h("span","tr"); tr.style.width = (100*dd.log.length/rmax)+"%";
+      const cs = h("span","cs");
+      for (const p of state.people){ const n=v[p.id]||0; if (!n) continue;
+        const seg=h("span"); seg.style.flex=n; seg.style.background=colorOf(p); tr.append(seg);
+        const lab=h("span"); const b=h("b",null,String(n)); b.style.color=colorOf(p); lab.append(document.createTextNode(p.name+" "), b); cs.append(lab); }
+      row.append(tr, cs);
+      if (dd.word && dd.word!==state.word) row.append(h("span","w","“"+dd.word+"”"));
+      D.append(row);
+    }
+  }
+
+  save(); render();
+  let rw; window.addEventListener("resize", () => { clearTimeout(rw); rw=setTimeout(render,150); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+  setInterval(() => { if (!document.hidden && $("sheet").hidden) render(); }, 60000);
+
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
